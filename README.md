@@ -13,8 +13,12 @@ Dependencies: netcdf4, numba, cudatookit, s3fs, matplotlib, cartopy, xarray, met
     - s3fs required to download GOES data from AWS
     - xarray, matplotlib, cartopy, and metpy required in code to plot results
 
-Recommend using a virtual environment to run this code, such as conda.
-Development required install using the following commands:
+Recommend using a virtual environment to run this code, such as conda
+environment.yml file provided in directory for easy installation of all dependencies
+    $ conda env create -f environment.yml
+
+Should the environment.yml file fail to install workable environment, environment can be installed using the commands below in the
+order they are provided. 
     create an anaconda environment:
         $ conda create -n INOW_env python=3.12.2
         $ conda activate INOW_env
@@ -34,9 +38,6 @@ Development required install using the following commands:
         $ conda install -c conda-forge metpy
     Now s3fs
         $ conda install -c conda-forge s3fs
-
-environment.yml file provided in directory for easy installation of all dependencies
-    $ conda env create -f environment.yml
 
 Example run commnand (unix):
     $ python Nowcast_Example.py
