@@ -63,7 +63,6 @@
 # to contain only the required CTH and CBH data instead of full CLAVR-x retrieval data.  
 
 
-
 #%%
 # Imports
 import os
