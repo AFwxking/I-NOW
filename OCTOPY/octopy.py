@@ -1038,6 +1038,56 @@ def octopy(f1, f2, nchan=1, alpha=3, lambdav=1, kiters=4,liters=3, iters=30,
     #call the kernel here
     print("Optical flow code starting")
     t0 = time.time()
+    
+    # -------------------------------------------------------------------
+    # Compute GPU cooperative block limits via CUDA driver occupancy API
+    # -------------------------------------------------------------------
+    import ctypes
+
+    device = cuda.get_current_device()
+    num_sm = getattr(device, 'MULTIPROCESSOR_COUNT', 30)
+
+    try:
+        kernel_args = (
+            Aval,Arow,ArowSP,Acol,x0,
+            uval,vval,uvalt,vvalt,uhval,vhval,
+            geo1,geo2,geo10,geo20,CTHc,CTHo,GK,gradxarrg2,
+            gradyarrg2,gradxxarr,gradxyarr,gradyyarr,
+            gradxarr,gradyarr,nchan,alpha,lambdadalpha,lambdac,
+            An,xityi2,nx,ny,
+            bcu,Mval,Mrow,z0,
+            p0,residc,tol,iters,rk,zktrk,z0tr0,
+            rkTzk,pkTApk,dummyvec,
+            liters,kiters,filtsize,filtsize2,scaleFactor,scsig,dozim
+        )
+        arg_types = tuple(cuda.typeof(a) for a in kernel_args)
+        compiled_kernel = octane.compile(arg_types)
+
+        active_blocks_per_sm = ctypes.c_int()
+        tpb = threadsperblock if isinstance(threadsperblock, int) else threadsperblock[0]
+
+        cuda.cudadrv.driver.driver.cuOccupancyMaxActiveBlocksPerMultiprocessor(
+            ctypes.byref(active_blocks_per_sm),
+            compiled_kernel.handle,
+            tpb,
+            0
+        )
+        max_coop_blocks = active_blocks_per_sm.value * num_sm
+    except Exception:
+        # Fallback ceiling based on hardware SM count if driver query is bypassed
+        max_coop_blocks = num_sm * 2
+
+    # Clamp requested grid size to the hardware cooperative ceiling
+    if isinstance(blockspergrid, int):
+        blockspergrid = min(blockspergrid, max_coop_blocks)
+    elif isinstance(blockspergrid, (tuple, list)):
+        total_requested = int(np.prod(blockspergrid))
+        if total_requested > max_coop_blocks:
+            blockspergrid = max_coop_blocks
+
+    print(f"Launching octane kernel: {blockspergrid} blocks (GPU SM count: {num_sm}, max coop blocks: {max_coop_blocks})")
+    # -------------------------------------------------------------------
+    
     octane[blockspergrid, threadsperblock](Aval,Arow,ArowSP,Acol,x0,
         uval,vval,uvalt,vvalt,uhval,vhval,
         geo1,geo2,geo10,geo20,CTHc,CTHo,GK,gradxarrg2,
